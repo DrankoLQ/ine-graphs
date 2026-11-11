@@ -8,11 +8,6 @@ interface Props {
 
 const { title, description } = Astro.props;
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
-
-const links = [
-  { href: '/', label: 'Pirámide' },
-  { href: '/inflacion', label: 'Inflación' },
-];
 ---
 
 <!doctype html>
@@ -28,19 +23,12 @@ const links = [
     <meta name="theme-color" content="#fbfaf7" />
   </head>
   <body>
-    <nav class="nav" aria-label="Historias">
+    <nav class="nav" aria-label="Navegación">
       <a class="brand" href="/">INE · Gráficos</a>
       <div class="nav-links">
-        {
-          links.map((link) => (
-            <a
-              href={link.href}
-              aria-current={path === link.href ? 'page' : undefined}
-            >
-              {link.label}
-            </a>
-          ))
-        }
+        <a href="/" aria-current={path === '/' ? 'page' : undefined}>
+          Todas las historias
+        </a>
       </div>
     </nav>
 

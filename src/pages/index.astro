@@ -1,244 +1,132 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import data from '../data/piramide.json';
 
-const lastIndex = data.years.length - 1;
-const firstYear = data.years[0];
-const lastYear = data.years[lastIndex];
-const fetched = data.fetched.split('-').reverse().join('/');
-
-// JSON seguro para incrustar en el HTML.
-const json = JSON.stringify(data).replace(/</g, '\\u003c');
+const stories = [
+  {
+    href: '/piramide',
+    theme: 'Demografía',
+    title: 'España envejece por la base',
+    hook: 'La edad más común pasó de 16 a 48 años. La pirámide de población, animada entre 1981 y 2025.',
+  },
+  {
+    href: '/inflacion',
+    theme: 'Precios',
+    title: 'No todo sube igual',
+    hook: 'La comida sube un 41 %; la ropa, un 11 %. Y cada año de la serie tiene su propia historia.',
+  },
+];
 ---
 
 <Layout
-  title="La pirámide de población de España, 1981-2025"
-  description="Cómo ha cambiado la estructura por edad de España entre 1981 y 2025. Datos de la Estadística Continua de Población del INE."
+  title="España, en datos — Gráficos del INE"
+  description="Historias con datos del Instituto Nacional de Estadística: población, precios, trabajo y vivienda. Snapshots reproducibles, sin API en tiempo de ejecución."
 >
   <header>
-    <p class="eyebrow">INE · Estadística Continua de Población</p>
-    <h1>España envejece por la base</h1>
+    <p class="eyebrow">INE · Datos abiertos</p>
+    <h1>España, en datos</h1>
     <p class="standfirst">
-      La edad más común pasó de <strong>16 años</strong> en {firstYear} a
-      <strong>48 años</strong> en {lastYear}. No es solo que haya más mayores:
-      es que casi ha desaparecido el escalón de los jóvenes.
+      Historias con datos del Instituto Nacional de Estadística. Cada gráfico se
+      descarga y valida en tiempo de compilación; el sitio no llama a la API en
+      tiempo de ejecución.
     </p>
   </header>
 
-  <section class="chart-card" data-pyramid>
-    <div class="controls">
-      <button type="button" class="play" data-play aria-pressed="false">
-        Reproducir
-      </button>
-      <label class="slider">
-        <span class="sr-only">Año</span>
-        <input type="range" min="0" max={lastIndex} step="1" value="0" data-slider />
-      </label>
-      <span class="year" data-year>{firstYear}</span>
-    </div>
-
-    <div class="chart" data-chart></div>
-
-    <p class="ghost-note">
-      <span class="ghost-key"></span>
-      Línea discontinua: perfil de {firstYear}
-    </p>
-
-    <dl class="stats">
-      <div>
-        <dt>Población</dt>
-        <dd data-stat="total">—</dd>
-      </div>
-      <div>
-        <dt>Menores de 15</dt>
-        <dd data-stat="young">—</dd>
-      </div>
-      <div>
-        <dt>Mayores de 65</dt>
-        <dd data-stat="old">—</dd>
-      </div>
-      <div>
-        <dt>Edad más común</dt>
-        <dd data-stat="modal">—</dd>
-      </div>
-    </dl>
-
-    <details class="method">
-      <summary>Cómo se ha hecho</summary>
-      <div>
-        <p>
-          Cada fotograma es el último trimestre publicado de un año. Se muestran
-          edades simples de 0 a 99 años. La serie empieza en {firstYear} porque
-          antes de ese año el INE solo publica hasta los 84 años, lo que rompería
-          la comparación visual.
-        </p>
-        <p>
-          Los datos se descargan una vez, en tiempo de compilación, con
-          <code>npm run data</code>, y se sirven como JSON estático. El gráfico no
-          llama al INE en tiempo de ejecución.
-        </p>
-      </div>
-    </details>
-
-    <p class="source">
-      Fuente:
-      <a href={data.source.url} rel="noopener">{data.source.name}</a>, tabla
-      {data.source.table}. Licencia
-      <a href={data.source.licenseUrl} rel="noopener">{data.source.license}</a>.
-      Datos descargados el {fetched}.
-    </p>
+  <section class="story-grid" aria-label="Historias">
+    {
+      stories.map((story) => (
+        <a class="story-card" href={story.href}>
+          <p class="story-kicker">{story.theme}</p>
+          <h2>{story.title}</h2>
+          <p class="story-hook">{story.hook}</p>
+          <span class="story-arrow" aria-hidden="true">→</span>
+        </a>
+      ))
+    }
   </section>
 
-  <noscript>
-    <p class="notice">
-      El gráfico necesita JavaScript. Los datos completos están en
-      <code>/src/data/piramide.json</code>.
-    </p>
-  </noscript>
-
-  <script is:inline type="application/json" id="piramide-data" set:html={json}></script>
-
-  <script>
-    import { initPyramid } from '../lib/pyramid.js';
-    initPyramid();
-  </script>
-
-  <style is:global>
-    .pyramid-year {
-      font-family: "Iowan Old Style", Georgia, serif;
-      font-size: 26px;
-      font-weight: 600;
-      fill: var(--ink);
-      letter-spacing: 0.01em;
-    }
-
-    .age {
-      font-size: 10px;
-      fill: var(--muted);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .pyramid-tick,
-    .pyramid-axis-title {
-      font-size: 10px;
-      fill: var(--muted);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .pyramid-axis-title {
-      letter-spacing: 0.02em;
-    }
-
-    .pyramid-legend text {
-      font-size: 12px;
-      fill: var(--ink);
-    }
-
-    .pyramid-tooltip {
-      position: absolute;
-      pointer-events: none;
-      background: rgba(255, 255, 255, 0.97);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 12px;
-      line-height: 1.45;
-      box-shadow: 0 4px 14px rgba(20, 20, 18, 0.1);
-      display: grid;
-      gap: 2px;
-      min-width: 170px;
-    }
-
-    .pyramid-tooltip[hidden] {
-      display: none;
-    }
-
-    .pyramid-tooltip strong {
-      font-size: 12px;
-    }
-
-    .pyramid-tooltip span {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-variant-numeric: tabular-nums;
-      color: #34332f;
-    }
-
-    .pyramid-tooltip i {
-      width: 8px;
-      height: 8px;
-      border-radius: 2px;
-      display: inline-block;
-    }
-
-    .ghost-note {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin: 4px 0 18px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .ghost-key {
-      width: 22px;
-      height: 0;
-      border-top: 1.5px dashed #8a8a86;
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin: 0;
-      padding: 16px 0 4px;
-      border-top: 1px solid var(--line);
-    }
-
-    .stats div {
-      display: grid;
-      gap: 4px;
-    }
-
-    .stats dt {
-      font-size: 11px;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .stats dd {
-      margin: 0;
-      font-size: clamp(17px, 2.6vw, 21px);
-      font-weight: 650;
-      font-variant-numeric: tabular-nums;
-    }
-
-    @media (max-width: 620px) {
-      .stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px 12px;
-      }
-    }
-
-    @media (min-width: 1100px) {
-      .age {
-        font-size: 11px;
-      }
-
-      .pyramid-tick,
-      .pyramid-axis-title {
-        font-size: 11px;
-      }
-
-      .pyramid-year {
-        font-size: 30px;
-      }
-
-      .pyramid-legend text {
-        font-size: 13px;
-      }
-    }
-  </style>
+  <p class="hub-note">
+    {stories.length} historias publicadas. Las fuentes y el método están en el pie
+    de cada una.
+  </p>
 </Layout>
+
+<style is:global>
+  .story-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .story-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px 24px 48px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--card);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+
+  .story-card:hover {
+    border-color: #c9c5bb;
+    transform: translateY(-1px);
+  }
+
+  .story-kicker {
+    margin: 0;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .story-card h2 {
+    margin: 0;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    font-size: clamp(22px, 3vw, 28px);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+
+  .story-hook {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #45443f;
+    max-width: 42ch;
+  }
+
+  .story-arrow {
+    position: absolute;
+    right: 22px;
+    bottom: 18px;
+    font-size: 18px;
+    color: var(--muted);
+    transition: transform 0.15s ease, color 0.15s ease;
+  }
+
+  .story-card:hover .story-arrow {
+    transform: translateX(3px);
+    color: var(--ink);
+  }
+
+  .hub-note {
+    margin: 22px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  @media (max-width: 620px) {
+    .story-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .story-card {
+      padding: 20px 20px 44px;
+    }
+  }
+</style>

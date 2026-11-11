@@ -22,9 +22,27 @@ page.on('pageerror', (err) => errors.push(String(err)));
 const checks = [];
 const push = (name, ok, detail = '') => checks.push({ name, ok, detail });
 
-/* ---------------------------------------------------------------- Pirámide */
+/* ------------------------------------------------------------------- Hub */
 
 await page.goto(BASE, { waitUntil: 'networkidle' });
+
+const cards = await page.locator('.story-card').count();
+push('hub: 2 historias', cards === 2, `cards=${cards}`);
+
+const hrefs = await page.locator('.story-card').evaluateAll((els) =>
+  els.map((e) => e.getAttribute('href'))
+);
+push(
+  'hub: enlaces a piramide e inflacion',
+  hrefs.includes('/piramide') && hrefs.includes('/inflacion'),
+  hrefs.join(',')
+);
+
+await page.locator('.story-card', { hasText: 'España envejece' }).click();
+await page.waitForURL(/\/piramide\/?$/);
+await page.waitForTimeout(400);
+
+/* ---------------------------------------------------------------- Pirámide */
 
 const barsM = await page.locator('svg rect.male').count();
 const barsF = await page.locator('svg rect.female').count();
@@ -48,12 +66,16 @@ push('pirámide: play funciona', playing === 'true', `pressed=${playing}`);
 await page.locator('[data-play]').click();
 
 const navCount = await page.locator('.nav-links a').count();
-push('nav: dos historias enlazadas', navCount === 2, `links=${navCount}`);
+push('nav: un enlace al índice', navCount === 1, `links=${navCount}`);
+
+await page.locator('.nav-links a', { hasText: 'Todas las historias' }).click();
+await page.waitForURL(BASE + '/');
+const backCards = await page.locator('.story-card').count();
+push('nav: vuelve al índice', backCards === 2, `cards=${backCards}`);
 
 /* --------------------------------------------------------------- Inflación */
 
-await page.locator('.nav-links a', { hasText: 'Inflación' }).click();
-await page.waitForURL('**/inflacion');
+await page.goto(`${BASE}/inflacion`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(500);
 
 const rows = await page.locator('g.row').count();

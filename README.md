@@ -45,7 +45,8 @@ src/
   lib/pyramid.js          D3: pirámide animada
   lib/inflation.js        D3: barras de inflación
   lib/inflation-series.js D3: serie mensual
-  pages/index.astro       historia 1
+  pages/index.astro       índice de historias
+  pages/piramide.astro    historia 1
   pages/inflacion.astro   historia 2
   data/*.json             generados, versionados
 ```
