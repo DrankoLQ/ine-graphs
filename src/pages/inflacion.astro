@@ -1,0 +1,450 @@
+---
+import Layout from '../layouts/Layout.astro';
+import data from '../data/inflacion.json';
+import seriesData from '../data/inflacion-serie.json';
+
+const byShort = Object.fromEntries(data.groups.map((g) => [g.short, g]));
+const food = byShort['Alimentos y bebidas'].byYear['2019'];
+const clothes = byShort['Ropa y calzado'].byYear['2019'];
+const tobacco = byShort['Alcohol y tabaco'].byYear['2002'];
+const comms = byShort['Comunicaciones'].byYear['2002'];
+
+const round = (v) => `${Math.round(Math.abs(v))}\u00A0%`;
+
+const MONTHS = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+const [year, month] = data.latest.split('-');
+const latestLabel = `${MONTHS[Number(month) - 1]} de ${year}`;
+const latestLabelCap = latestLabel.charAt(0).toUpperCase() + latestLabel.slice(1);
+
+const fetched = data.fetched.split('-').reverse().join('/');
+const json = JSON.stringify(data).replace(/</g, '\\u003c');
+const seriesJson = JSON.stringify(seriesData).replace(/</g, '\\u003c');
+
+const nf = new Intl.NumberFormat('es-ES', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+const table = [...data.groups]
+  .sort((a, b) => b.byYear['2019'] - a.byYear['2019'])
+  .map((g) => ({
+    name: g.name,
+    weight: nf.format(g.weight),
+    values: data.years.map((y) => nf.format(g.byYear[String(y)])),
+  }));
+---
+
+<Layout
+  title="No todo sube igual: la inflación por grupos de consumo"
+  description="Qué productos se han encarecido más desde 2019 y desde 2002, y cómo ha evolucionado la inflación mes a mes. Datos del IPC del INE."
+>
+  <header>
+    <p class="eyebrow">INE · Índice de Precios de Consumo</p>
+    <h1>No todo sube igual</h1>
+    <p class="standfirst">
+      Frente a 2019, la comida se ha encarecido un <strong>{round(food)}</strong> y
+      la ropa un <strong>{round(clothes)}</strong>. Frente a 2002, el tabaco sube
+      un <strong>{round(tobacco)}</strong> y las comunicaciones caen un
+      <strong>{round(comms)}</strong>. La misma cesta, trece velocidades distintas.
+    </p>
+  </header>
+
+  <section class="chart-card" data-inflation>
+    <div class="chart-head">
+      <p class="chart-title">{latestLabelCap} frente a septiembre de</p>
+      <label class="select-wrap">
+        <span class="sr-only">Año de comparación</span>
+        <select data-year-select>
+          {
+            data.years.map((y) => (
+              <option value={y} selected={y === 2019}>{y}</option>
+            ))
+          }
+        </select>
+      </label>
+    </div>
+
+    <div class="chart" data-chart-bars></div>
+
+    <p class="chart-note">
+      Cada barra compara {latestLabel} con septiembre del año elegido. Al usar el
+      mismo mes, la estacionalidad no distorsiona grupos como ropa. En rojo, los
+      grupos que suben; en azul, los que bajan. El porcentaje bajo cada grupo es
+      su peso en la cesta de 2026.
+    </p>
+  </section>
+
+  <section class="chart-card" data-inflation-series>
+    <div class="chart-head">
+      <div>
+        <p class="chart-title">La misma cesta, mes a mes</p>
+        <p class="chart-sub">Variación anual del IPC</p>
+      </div>
+      <label class="select-wrap">
+        <span class="sr-only">Grupo de consumo</span>
+        <select data-series-select>
+          <option value="general">General</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="chart" data-chart-series></div>
+
+    <p class="chart-note">
+      Línea roja: serie seleccionada. En gris, el índice general cuando eliges un
+      grupo. Cada punto compara el precio con el del mismo mes del año anterior.
+      El general tocó su máximo en julio de 2022, con un 10,8 %.
+    </p>
+  </section>
+
+  <details class="method method--wide">
+    <summary>Ver los datos</summary>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Grupo</th>
+            <th scope="col">Peso</th>
+            {
+              data.years.map((y) => (
+                <th scope="col">{y}</th>
+              ))
+            }
+          </tr>
+        </thead>
+        <tbody>
+          {
+            table.map((row) => (
+              <tr>
+                <th scope="row">{row.name}</th>
+                <td>{row.weight} %</td>
+                {row.values.map((v) => (
+                  <td>{v} %</td>
+                ))}
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <details class="method">
+    <summary>Cómo se ha hecho</summary>
+    <div>
+      <p>
+        El selector compara siempre el mismo mes: {latestLabel} frente a
+        septiembre del año elegido. Al no mezclar estaciones, la estacionalidad no
+        distorsiona grupos como ropa, que cae un 13 % en enero y sube un 8 % en
+        octubre. Comparar diciembre con septiembre la hacía parecer un 3 % más
+        barata cuando en realidad se ha encarecido un 11 %.
+      </p>
+      <p>
+        La serie mensual se calcula como variación anual: cada mes se compara con
+        el mismo mes del año anterior. El último dato publicado, octubre de 2026,
+        es un avance sin índice definitivo, así que la serie termina en septiembre
+        de 2026.
+      </p>
+      <p>
+        La serie de 2002 acumula seis bases del IPC. El INE las empalma, y se
+        comprobó que los cambios de base no introducen saltos: las variaciones
+        mensuales en esos eneros son normales.
+      </p>
+      <p>
+        Los pesos de la cesta son de 2026, no de la fecha base. Sirven como
+        contexto y no para calcular contribuciones exactas a la media.
+      </p>
+    </div>
+  </details>
+
+  <p class="source">
+    Fuente:
+    <a href={data.source.url} rel="noopener">{data.source.name}</a>, tabla
+    {data.source.table}, con ponderaciones de la tabla {data.source.weightsTable}.
+    Licencia
+    <a href={data.source.licenseUrl} rel="noopener">{data.source.license}</a>.
+    Datos descargados el {fetched}.
+  </p>
+
+  <noscript>
+    <p class="notice">
+      Los gráficos necesitan JavaScript. Los datos completos están en la tabla de
+      arriba y en <code>/src/data/</code>.
+    </p>
+  </noscript>
+
+  <script is:inline type="application/json" id="inflacion-data" set:html={json}></script>
+  <script is:inline type="application/json" id="inflacion-serie-data" set:html={seriesJson}></script>
+
+  <script>
+    import { initInflation } from '../lib/inflation.js';
+    import { initInflationSeries } from '../lib/inflation-series.js';
+    initInflation();
+    initInflationSeries();
+  </script>
+
+  <style is:global>
+    .chart-card + .chart-card {
+      margin-top: 20px;
+    }
+
+    .chart-card + .method {
+      margin-top: 30px;
+    }
+
+    .chart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+
+    .chart-title {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .chart-sub {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .select-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .select-wrap::after {
+      content: "▾";
+      position: absolute;
+      right: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 10px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .select-wrap select {
+      appearance: none;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+      background: #f6f4ef;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 28px 7px 12px;
+      cursor: pointer;
+    }
+
+    .select-wrap select:focus-visible {
+      outline: 2px solid var(--cool);
+      outline-offset: 2px;
+    }
+
+    .row-name {
+      font-size: 13px;
+      font-weight: 550;
+    }
+
+    .row-weight {
+      font-size: 10.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .row-value {
+      font-size: 12px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ref-label {
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink);
+    }
+
+    .tick line {
+      stroke: var(--line);
+      stroke-dasharray: 2 3;
+    }
+
+    .tick text {
+      fill: var(--muted);
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .domain {
+      stroke: var(--line);
+    }
+
+    .series-tick {
+      font-size: 10px;
+      fill: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .series-note {
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink);
+    }
+
+    .inflacion-tooltip,
+    .series-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(255, 255, 255, 0.98);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 11px;
+      font-size: 12px;
+      line-height: 1.5;
+      box-shadow: 0 4px 14px rgba(20, 20, 18, 0.1);
+      display: grid;
+      gap: 2px;
+      max-width: 210px;
+      color: #34332f;
+    }
+
+    .inflacion-tooltip[hidden],
+    .series-tooltip[hidden] {
+      display: none;
+    }
+
+    .inflacion-tooltip strong,
+    .series-tooltip strong {
+      font-size: 12px;
+      color: var(--ink);
+      line-height: 1.35;
+      margin-bottom: 2px;
+    }
+
+    .series-tooltip span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .series-tooltip i {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      display: inline-block;
+      flex: none;
+    }
+
+    .chart-note {
+      margin: 10px 0 18px;
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: var(--muted);
+      max-width: 66ch;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    th,
+    td {
+      text-align: right;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+
+    thead th {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    tbody th {
+      text-align: left;
+      font-weight: 500;
+      white-space: normal;
+      min-width: 180px;
+    }
+
+    @media (max-width: 620px) {
+      .row-name {
+        font-size: 11.5px;
+      }
+
+      .row-weight {
+        font-size: 9.5px;
+      }
+
+      .row-value {
+        font-size: 11px;
+      }
+
+      .ref-label {
+        font-size: 10px;
+      }
+
+      tbody th {
+        min-width: 0;
+      }
+
+      .chart-card + .chart-card {
+        margin-top: 14px;
+      }
+    }
+
+    @media (min-width: 1100px) {
+      .chart-title {
+        font-size: 14px;
+      }
+
+      .chart-sub {
+        font-size: 13px;
+      }
+
+      .row-name {
+        font-size: 14px;
+      }
+
+      .row-weight {
+        font-size: 11.5px;
+      }
+
+      .row-value {
+        font-size: 13px;
+      }
+
+      .ref-label,
+      .series-note {
+        font-size: 12px;
+      }
+
+      .series-tick {
+        font-size: 11px;
+      }
+
+      .chart-note {
+        font-size: 12.5px;
+      }
+    }
+  </style>
+</Layout>

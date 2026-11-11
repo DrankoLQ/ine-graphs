@@ -1,0 +1,22 @@
+{
+  "name": "ine-graphs",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "data": "npm run data:piramide && npm run data:inflacion",
+    "data:piramide": "node scripts/fetch-piramide.mjs",
+    "data:inflacion": "node scripts/fetch-inflacion.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "astro": "7.4.10",
+    "d3": "^7.9.0"
+  },
+  "devDependencies": {
+    "playwright": "1.65.0"
+  }
+}
