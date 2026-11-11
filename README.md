@@ -16,7 +16,17 @@ dependencias en tiempo de ejecución.
 
 https://ine-graphs.vercel.app
 
-Para actualizar los datos y publicar:
+El repositorio está conectado a Vercel: cada push a `main` construye y publica
+el sitio. Los datos se regeneran en local y se versionan antes del push:
+
+```bash
+npm run data
+git add src/data
+git commit -m "data: actualizar snapshots"
+git push
+```
+
+Despliegue manual, si hace falta:
 
 ```bash
 npm run data && npm run build && npx vercel --prod
