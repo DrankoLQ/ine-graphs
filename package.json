@@ -7,10 +7,14 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "data": "npm run data:piramide && npm run data:inflacion && npm run data:paro",
+    "data": "npm run data:piramide && npm run data:inflacion && npm run data:paro && npm run data:salario-real",
     "data:piramide": "node scripts/fetch-piramide.mjs",
     "data:inflacion": "node scripts/fetch-inflacion.mjs",
     "data:paro": "node scripts/fetch-paro.mjs",
+    "data:salario-real": "node scripts/fetch-salario-real.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "verify": "node scripts/verify.mjs",
+    "check": "npm test && npm run verify && npm run build",
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {

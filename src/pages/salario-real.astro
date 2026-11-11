@@ -1,0 +1,294 @@
+---
+import Layout from '../layouts/Layout.astro';
+import data from '../data/salario-real.json';
+
+const { stats } = data;
+
+const nf1 = new Intl.NumberFormat('es-ES', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+const nf0 = new Intl.NumberFormat('es-ES', {
+  maximumFractionDigits: 0,
+});
+
+const pct = (v) => `${nf1.format(v)}\u00A0%`;
+const signedPct = (v) => `${v > 0 ? '+' : ''}${nf1.format(v)}\u00A0%`;
+const eur = (v) => `${nf0.format(v)}\u00A0€`;
+
+const nominalHeadline = Math.round(stats.nominal.growth);
+const realHeadline = Math.round(stats.real.growth);
+
+const rows = data.years
+  .map((year, i) => ({
+    year,
+    nominal: nf0.format(data.nominal[i]),
+    ipc: signedPct(data.ipcChange[i]),
+    real: nf0.format(data.real[i]),
+    change: signedPct(data.realChange[i]),
+  }))
+  .reverse();
+
+const fetched = data.fetched.split('-').reverse().join('/');
+const json = JSON.stringify(data).replace(/</g, '\\u003c');
+---
+
+<Layout
+  title="El sueldo sube un 35 %, el poder adquisitivo un 1 % — Gráficos del INE"
+  description="Salario nominal y real en España, 2008-2024. El sueldo medio sube un 35 %, pero descontando el IPC el poder adquisitivo apenas gana un 1,1 %."
+>
+  <header>
+    <p class="eyebrow">INE · Salarios y precios</p>
+    <h1 class="headline-long">
+      El sueldo sube un {nominalHeadline}&nbsp;%.<br />
+      El poder adquisitivo, un {realHeadline}&nbsp;%.
+    </h1>
+    <p class="standfirst">
+      El salario medio nominal pasó de <strong>{eur(stats.nominal.first)}</strong>
+      a <strong>{eur(stats.nominal.last)}</strong> entre 2008 y 2024. Descontando
+      el IPC, el poder adquisitivo apenas ha ganado un
+      <strong>{pct(stats.real.growth)}</strong>: son
+      <strong>{eur(stats.real.last)}</strong> de 2008. En 2013 llegó a caer un
+      <strong>{pct(Math.abs(stats.real.min.change))}</strong>.
+    </p>
+  </header>
+
+  <section class="chart-card">
+    <div class="chart-head">
+      <div>
+        <p class="chart-title">Variación acumulada del salario</p>
+        <p class="chart-sub">Nominal y real desde 2008 · %</p>
+      </div>
+      <div class="salario-legend" aria-hidden="true">
+        <span><i class="salario-swatch salario-swatch--real"></i>Salario real</span>
+        <span><i class="salario-swatch salario-swatch--nominal"></i>Salario nominal</span>
+      </div>
+    </div>
+
+    <div class="chart" data-chart-salario></div>
+
+    <p class="chart-note">
+      El salario nominal es el de la nómina; el real descuenta el IPC y se expresa
+      en euros de 2008. La distancia entre las líneas es el efecto de la
+      inflación: los precios subieron un {pct(stats.inflation.growth)} entre 2008
+      y 2024. El mínimo real fue {stats.real.min.year}
+      ({pct(stats.real.min.change)}) y el máximo, {stats.real.max.year}
+      ({signedPct(stats.real.max.change)}). En 2022 la inflación volvió a dejar
+      el poder adquisitivo por debajo del nivel de 2008.
+    </p>
+  </section>
+
+  <details class="method method--wide">
+    <summary>Ver los datos</summary>
+    <div
+      class="table-wrap"
+      role="region"
+      aria-label="Salario nominal, IPC y salario real"
+      tabindex="0"
+    >
+      <table class="table--compact salario-table">
+        <thead>
+          <tr>
+            <th scope="col">Año</th>
+            <th scope="col">Salario nominal</th>
+            <th scope="col">IPC acumulado</th>
+            <th scope="col">Salario real (€ de 2008)</th>
+            <th scope="col">Variación real</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            rows.map((row) => (
+              <tr>
+                <th scope="row">{row.year}</th>
+                <td>{row.nominal} €</td>
+                <td>{row.ipc}</td>
+                <td>{row.real} €</td>
+                <td>{row.change}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  <details class="method">
+    <summary>Cómo se ha hecho</summary>
+    <div>
+      <p>
+        La Encuesta Anual de Estructura Salarial publica la ganancia bruta anual
+        media por trabajador. La tabla 28191 cubre 2008-2024; el último dato es
+        definitivo. Es un salario bruto: no descuenta impuestos ni cotizaciones.
+      </p>
+      <p>
+        El salario real se calcula dividiendo el nominal por el IPC medio anual y
+        expresándolo en euros de 2008. El IPC medio es la media de los doce
+        índices mensuales del IPC general (base 2025). Su variación acumulada
+        desde 2008 es la que aparece en el tooltip y en la tabla.
+      </p>
+      <p>
+        La variación acumulada compara cada año con 2008. El salario real es una
+        media de todos los asalariados; no representa la situación de cada hogar.
+        El IPC no incluye el coste de la vivienda en propiedad; el alquiler sí
+        forma parte de la cesta, pero con un peso limitado.
+      </p>
+      <p>
+        El máximo real fue {stats.real.max.year}
+        ({signedPct(stats.real.max.change)}), cuando el IPC cayó; el mínimo,
+        {stats.real.min.year} ({pct(stats.real.min.change)}). En 2022 la
+        inflación volvió a recortar el poder adquisitivo.
+      </p>
+      <p class="provenance">
+        <strong>Datos directos:</strong> ganancia bruta anual media por
+        trabajador (EAES, tabla 28191) e índices mensuales del IPC general
+        (tabla 76125).<br />
+        <strong>Cálculo propio:</strong> IPC medio anual (media de los 12
+        meses), salario real en euros de 2008, variaciones acumuladas e IPC
+        acumulado. La base 2008 es nuestra; el INE no publica esta serie real
+        con esa base.
+      </p>
+    </div>
+  </details>
+
+  <p class="source">
+    Fuentes:
+    <a href={data.source.url} rel="noopener">{data.source.name}</a>, tabla
+    {data.source.table}, e
+    <a href={data.source.ipcUrl} rel="noopener">{data.source.ipcName}</a>, tabla
+    {data.source.ipcTable}. Licencia
+    <a href={data.source.licenseUrl} rel="noopener">{data.source.license}</a>.
+    Datos descargados el {fetched}.
+  </p>
+
+  <noscript>
+    <p class="notice">
+      El gráfico necesita JavaScript. Los datos completos están en la tabla de
+      arriba y en <code>/src/data/</code>.
+    </p>
+  </noscript>
+
+  <script is:inline type="application/json" id="salario-real-data" set:html={json}></script>
+
+  <script>
+    import { initRealWage } from '../lib/real-wage.js';
+    initRealWage();
+  </script>
+
+  <style is:global>
+    .headline-long {
+      font-size: clamp(32px, 5.2vw, 44px);
+    }
+
+    .salario-legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .salario-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .salario-swatch {
+      display: inline-block;
+      width: 12px;
+      height: 3px;
+      border-radius: 2px;
+    }
+
+    .salario-swatch--real {
+      background: #b4553f;
+    }
+
+    .salario-swatch--nominal {
+      background: #8a8883;
+    }
+
+    .salario-tick {
+      font-size: 10px;
+      fill: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .salario-note {
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--ink);
+    }
+
+    .salario-end {
+      font-size: 11px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .salario-end--nominal {
+      fill: #8a8883;
+    }
+
+    .salario-end--real {
+      fill: #b4553f;
+    }
+
+    .salario-gap-label {
+      font-size: 10px;
+      fill: #9b9994;
+      letter-spacing: 0.04em;
+    }
+
+    .series-tooltip .tooltip-ipc {
+      color: var(--muted);
+      font-size: 11px;
+      padding-left: 14px;
+    }
+
+    .salario-table thead th {
+      white-space: normal;
+      line-height: 1.25;
+    }
+
+    @media (max-width: 620px) {
+      .salario-legend {
+        gap: 10px;
+        font-size: 11px;
+      }
+
+      .salario-note,
+      .salario-end {
+        font-size: 10px;
+      }
+
+      .salario-table th,
+      .salario-table td {
+        padding: 6px 4px;
+        font-size: 11px;
+      }
+    }
+
+    @media (min-width: 1100px) {
+      .salario-legend {
+        font-size: 13px;
+      }
+
+      .salario-tick {
+        font-size: 11px;
+      }
+
+      .salario-note,
+      .salario-end {
+        font-size: 12px;
+      }
+
+      .salario-gap-label {
+        font-size: 11px;
+      }
+    }
+  </style>
+</Layout>

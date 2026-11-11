@@ -11,6 +11,7 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { round2, unemploymentStats } from '../src/lib/calc.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(__dirname, '../src/data/paro.json');
@@ -129,46 +130,30 @@ async function main() {
     }
   }
 
-  const latest = quarters.length - 1;
-  const peak = youthValues.reduce((best, v, i) => (v > best.value ? { value: v, index: i } : best), {
-    value: -Infinity,
-    index: -1,
-  });
-  const low = youthValues.reduce((best, v, i) => (v < best.value ? { value: v, index: i } : best), {
-    value: Infinity,
-    index: -1,
-  });
-  const totalPeak = totalValues.reduce(
-    (best, v, i) => (v > best.value ? { value: v, index: i } : best),
-    { value: -Infinity, index: -1 }
-  );
-
-  const ratios = youthValues.map((v, i) => ({ ratio: v / totalValues[i], index: i }));
-  const ratioMin = ratios.reduce((a, b) => (b.ratio < a.ratio ? b : a));
-  const ratioMax = ratios.reduce((a, b) => (b.ratio > a.ratio ? b : a));
+  const stats = unemploymentStats(quarters, totalValues, youthValues);
 
   const close = (value, expected, tolerance = 0.05) => Math.abs(value - expected) <= tolerance;
 
-  if (!close(totalValues[latest], 10.18)) {
-    fail(`Paro total del último trimestre inesperado: ${totalValues[latest]}.`);
+  if (!close(stats.latest.total, 10.18)) {
+    fail(`Paro total del último trimestre inesperado: ${stats.latest.total}.`);
   }
-  if (!close(youthValues[latest], 23.33)) {
-    fail(`Paro juvenil del último trimestre inesperado: ${youthValues[latest]}.`);
+  if (!close(stats.latest.youth, 23.33)) {
+    fail(`Paro juvenil del último trimestre inesperado: ${stats.latest.youth}.`);
   }
-  if (quarters[peak.index] !== '2013-01' || !close(peak.value, 56.92, 0.1)) {
-    fail(`Pico juvenil inesperado: ${peak.value} % en ${quarters[peak.index]}.`);
+  if (stats.peak.quarter !== '2013-01' || !close(stats.peak.youth, 56.92, 0.1)) {
+    fail(`Pico juvenil inesperado: ${stats.peak.youth} % en ${stats.peak.quarter}.`);
   }
-  if (quarters[low.index] !== '2006-07' || !close(low.value, 16.9, 0.1)) {
-    fail(`Mínimo juvenil inesperado: ${low.value} % en ${quarters[low.index]}.`);
+  if (stats.low.quarter !== '2006-07' || !close(stats.low.youth, 16.9, 0.1)) {
+    fail(`Mínimo juvenil inesperado: ${stats.low.youth} % en ${stats.low.quarter}.`);
   }
-  if (quarters[totalPeak.index] !== '2013-01' || !close(totalPeak.value, 26.94, 0.1)) {
-    fail(`Pico total inesperado: ${totalPeak.value} % en ${quarters[totalPeak.index]}.`);
+  if (stats.totalPeak.quarter !== '2013-01' || !close(stats.totalPeak.value, 26.94, 0.1)) {
+    fail(`Pico total inesperado: ${stats.totalPeak.value} % en ${stats.totalPeak.quarter}.`);
   }
-  if (ratioMin.ratio < 1.85 || ratioMin.ratio > 2.0) {
-    fail(`Relación mínima juvenil/total inesperada: ${ratioMin.ratio.toFixed(2)}.`);
+  if (stats.ratio.min < 1.85 || stats.ratio.min > 2.0) {
+    fail(`Relación mínima juvenil/total inesperada: ${stats.ratio.min.toFixed(2)}.`);
   }
-  if (ratioMax.ratio < 2.5 || ratioMax.ratio > 2.7) {
-    fail(`Relación máxima juvenil/total inesperada: ${ratioMax.ratio.toFixed(2)}.`);
+  if (stats.ratio.max < 2.5 || stats.ratio.max > 2.7) {
+    fail(`Relación máxima juvenil/total inesperada: ${stats.ratio.max.toFixed(2)}.`);
   }
 
   const payload = {
@@ -181,32 +166,24 @@ async function main() {
       note: 'Tasa de paro de la población de 16 y más años, total nacional, ambos sexos.',
     },
     fetched: new Date().toISOString().slice(0, 10),
-    latest: quarters[latest],
+    latest: stats.latest.quarter,
     quarters,
     series: { total: totalValues, youth: youthValues },
     stats: {
       latest: {
-        quarter: quarters[latest],
-        total: totalValues[latest],
-        youth: youthValues[latest],
-        gap: Number((youthValues[latest] - totalValues[latest]).toFixed(2)),
-        ratio: Number((youthValues[latest] / totalValues[latest]).toFixed(2)),
+        quarter: stats.latest.quarter,
+        total: stats.latest.total,
+        youth: stats.latest.youth,
+        gap: round2(stats.latest.gap),
+        ratio: round2(stats.latest.ratio),
       },
-      peak: {
-        quarter: quarters[peak.index],
-        youth: peak.value,
-        total: totalValues[peak.index],
-      },
-      low: {
-        quarter: quarters[low.index],
-        youth: low.value,
-        total: totalValues[low.index],
-      },
+      peak: stats.peak,
+      low: stats.low,
       ratio: {
-        min: Number(ratioMin.ratio.toFixed(2)),
-        minQuarter: quarters[ratioMin.index],
-        max: Number(ratioMax.ratio.toFixed(2)),
-        maxQuarter: quarters[ratioMax.index],
+        min: round2(stats.ratio.min),
+        minQuarter: stats.ratio.minQuarter,
+        max: round2(stats.ratio.max),
+        maxQuarter: stats.ratio.maxQuarter,
       },
     },
   };
@@ -216,10 +193,14 @@ async function main() {
 
   const kb = (Buffer.byteLength(JSON.stringify(payload)) / 1024).toFixed(1);
   console.log(`✓ ${quarters.length} trimestres (${quarters[0]} → ${quarters.at(-1)})`);
-  console.log(`✓ último: total ${totalValues[latest]} % | jóvenes ${youthValues[latest]} %`);
-  console.log(`✓ pico juvenil: ${peak.value} % en ${quarters[peak.index]}`);
-  console.log(`✓ mínimo juvenil: ${low.value} % en ${quarters[low.index]}`);
-  console.log(`✓ relación juvenil/total: ${ratioMin.ratio.toFixed(2)}–${ratioMax.ratio.toFixed(2)}`);
+  console.log(
+    `✓ último: total ${stats.latest.total} % | jóvenes ${stats.latest.youth} %`
+  );
+  console.log(`✓ pico juvenil: ${stats.peak.youth} % en ${stats.peak.quarter}`);
+  console.log(`✓ mínimo juvenil: ${stats.low.youth} % en ${stats.low.quarter}`);
+  console.log(
+    `✓ relación juvenil/total: ${stats.ratio.min.toFixed(2)}–${stats.ratio.max.toFixed(2)}`
+  );
   console.log(`✓ ${kb} KB → ${OUT}`);
   console.log(`✓ ${((Date.now() - started) / 1000).toFixed(1)} s`);
 }

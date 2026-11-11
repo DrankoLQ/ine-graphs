@@ -423,6 +423,14 @@ tbody th {
   max-width: 68ch;
 }
 
+.method p.provenance {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f6f4ef;
+  font-size: 13px;
+}
+
 code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.9em;

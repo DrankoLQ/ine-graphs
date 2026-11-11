@@ -20,6 +20,12 @@ const stories = [
     title: 'Ser joven duplica el paro',
     hook: 'La tasa de los menores de 25 años llegó al 56,9 % en 2013. En el verano de 2026 es del 23,3 %, el doble que la general.',
   },
+  {
+    href: '/salario-real',
+    theme: 'Trabajo',
+    title: 'El sueldo sube un 35 %, el poder adquisitivo un 1 %',
+    hook: 'El salario nominal gana un 35 % desde 2008. Descontando la inflación, el poder adquisitivo solo sube un 1,1 %.',
+  },
 ];
 ---
 
@@ -133,8 +139,8 @@ const stories = [
   }
 
   @media (min-width: 1100px) {
-    .story-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+    .story-hook {
+      max-width: 56ch;
     }
   }
 

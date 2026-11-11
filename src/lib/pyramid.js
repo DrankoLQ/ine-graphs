@@ -1,4 +1,5 @@
 import * as d3 from 'd3';
+import { pyramidStats } from './calc.js';
 
 const COLOR = {
   male: '#3d6b8c',
@@ -17,37 +18,6 @@ const FADE_MS = 90;
 const fmtInt = d3.format(',');
 const fmtPct = (v) => `${d3.format('.1f')(v).replace('.', ',')} %`;
 const fmtShort = d3.format('.2s');
-
-function statsFor(data, i) {
-  const ages = data.ages;
-  const m = data.male[i];
-  const f = data.female[i];
-
-  let total = 0;
-  let young = 0;
-  let old = 0;
-  let modalAge = ages[0];
-  let modalValue = -1;
-
-  for (let k = 0; k < ages.length; k += 1) {
-    const age = ages[k];
-    const v = m[k] + f[k];
-    total += v;
-    if (age <= 14) young += v;
-    if (age >= 65) old += v;
-    if (v > modalValue) {
-      modalValue = v;
-      modalAge = age;
-    }
-  }
-
-  return {
-    total,
-    young: (100 * young) / total,
-    old: (100 * old) / total,
-    modalAge,
-  };
-}
 
 export function initPyramid() {
   const dataEl = document.getElementById('piramide-data');
@@ -272,7 +242,7 @@ export function initPyramid() {
       `Pirámide de población de España en ${years[i]}. Hombres a la izquierda, mujeres a la derecha, edad de 0 a 99 años.`
     );
 
-    const stats = statsFor(data, i);
+    const stats = pyramidStats(data.male[i], data.female[i], data.ages);
     document.querySelector('[data-stat="total"]').textContent = fmtInt(stats.total);
     document.querySelector('[data-stat="young"]').textContent = fmtPct(stats.young);
     document.querySelector('[data-stat="old"]').textContent = fmtPct(stats.old);

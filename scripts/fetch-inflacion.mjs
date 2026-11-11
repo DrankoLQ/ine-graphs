@@ -11,10 +11,12 @@
 import { writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sameMonthChange, yearOnYear } from '../src/lib/calc.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(__dirname, '../src/data/inflacion.json');
 const OUT_SERIES = resolve(__dirname, '../src/data/inflacion-serie.json');
+const OUT_AUDIT = resolve(__dirname, '../src/data/inflacion-fuente.json');
 
 const BASE = 'https://servicios.ine.es/wstempus/js/ES';
 const URL_INDICES = `${BASE}/DATOS_TABLA/76125?tip=AM`;
@@ -64,6 +66,21 @@ function orderedPoints(serie) {
   return (serie.Data ?? [])
     .filter((d) => d.Valor != null && d.Fecha)
     .sort((a, b) => new Date(a.Fecha) - new Date(b.Fecha));
+}
+
+function definitiveMap(points) {
+  const byMonth = new Map();
+  for (const p of points) {
+    const tipo = p.T3_TipoDato ?? p.TipoDato?.Nombre;
+    // Los avances no tienen índice definitivo detrás; fuera de la serie.
+    if (tipo === 'Avance') continue;
+    byMonth.set(p.Fecha.slice(0, 7), p.Valor);
+  }
+  return byMonth;
+}
+
+function round2(value) {
+  return Number(value.toFixed(2));
 }
 
 async function fetchJson(url) {
@@ -128,35 +145,28 @@ async function main() {
   const generalLatest = generalPoints.at(-1);
   const latest = generalLatest.Fecha.slice(0, 7);
   const [refYear, refMonth] = latest.split('-').map(Number);
-  const refMonthLabel = String(refMonth).padStart(2, '0');
 
   const years = [];
   for (let y = YEAR_MIN; y < refYear; y += 1) years.push(y);
 
+  const generalMap = definitiveMap(generalPoints);
+  const groupMaps = new Map(
+    rows.map((row) => [row.name, definitiveMap(pointsByGroup.get(row.name))])
+  );
+
   // Cambio entre el mismo mes del año elegido y el último dato.
-  const changeFor = (points) => {
-    const byMonth = new Map();
-    for (const p of points) {
-      const tipo = p.T3_TipoDato ?? p.TipoDato?.Nombre;
-      if (tipo === 'Avance') continue;
-      byMonth.set(p.Fecha.slice(0, 7), p.Valor);
-    }
-
-    const ref = byMonth.get(latest);
-    if (ref == null) fail(`Falta el dato de ${latest}.`);
-
-    const out = {};
-    for (const year of years) {
-      const ym = `${year}-${refMonthLabel}`;
-      const value = byMonth.get(ym);
-      if (value == null) fail(`Falta ${ym} para comparar con ${latest}.`);
-      out[String(year)] = Number((100 * (ref / value - 1)).toFixed(2));
-    }
-    return out;
-  };
-
-  const general = changeFor(generalPoints);
-  for (const row of rows) row.byYear = changeFor(pointsByGroup.get(row.name));
+  const general = Object.fromEntries(
+    Object.entries(sameMonthChange(generalMap, latest, years)).map(([year, value]) => [
+      year,
+      round2(value),
+    ])
+  );
+  for (const row of rows) {
+    const changes = sameMonthChange(groupMaps.get(row.name), latest, years);
+    row.byYear = Object.fromEntries(
+      Object.entries(changes).map(([year, value]) => [year, round2(value)])
+    );
+  }
 
   // --- Guardas -------------------------------------------------------------
   if (rows.length !== 13) fail(`Se esperaban 13 grupos y hay ${rows.length}.`);
@@ -211,29 +221,104 @@ async function main() {
     }
   }
 
-  const toYearOnYear = (points) => {
-    const byMonth = new Map();
-    for (const p of points) {
-      const tipo = p.T3_TipoDato ?? p.TipoDato?.Nombre;
-      // Los avances no tienen índice definitivo detrás; fuera de la serie.
-      if (tipo === 'Avance') continue;
-      byMonth.set(p.Fecha.slice(0, 7), p.Valor);
-    }
+  const series = {
+    general: yearOnYear(generalMap, months).map((v) => (v == null ? null : round2(v))),
+  };
+  for (const row of rows) {
+    series[row.short] = yearOnYear(groupMaps.get(row.name), months).map((v) =>
+      v == null ? null : round2(v)
+    );
+  }
 
-    return months.map((ym) => {
-      const [y, m] = ym.split('-').map(Number);
-      const prev = `${y - 1}-${String(m).padStart(2, '0')}`;
-      const now = byMonth.get(ym);
-      const then = byMonth.get(prev);
-      if (now == null || then == null) return null;
-      return Number((100 * (now / then - 1)).toFixed(2));
-    });
+  // --- Auditoría: índices fuente y variación anual publicada por el INE ----
+  const auditMonths = [];
+  {
+    let [y, m] = [YEAR_MIN, 1];
+    const [ey, em] = lastMonth.split('-').map(Number);
+    while (y < ey || (y === ey && m <= em)) {
+      auditMonths.push(`${y}-${String(m).padStart(2, '0')}`);
+      m += 1;
+      if (m > 12) {
+        m = 1;
+        y += 1;
+      }
+    }
+  }
+
+  const auditIndices = {
+    general: auditMonths.map((ym) => {
+      const value = generalMap.get(ym);
+      if (value == null) fail(`Falta el índice general de ${ym}.`);
+      return Number(value.toFixed(3));
+    }),
+    groups: Object.fromEntries(
+      rows.map((row) => [
+        row.short,
+        auditMonths.map((ym) => {
+          const value = groupMaps.get(row.name).get(ym);
+          if (value == null) fail(`Falta el índice de ${row.short} en ${ym}.`);
+          return Number(value.toFixed(3));
+        }),
+      ])
+    ),
   };
 
-  const series = { general: toYearOnYear(generalPoints) };
-  for (const row of rows) series[row.short] = toYearOnYear(pointsByGroup.get(row.name));
+  const rateSeriesByGroup = new Map();
+  for (const serie of indices) {
+    const md = metadataOf(serie);
+    if (md[VAR_TIPO] !== 'Variación anual') continue;
+    const grupo = md[VAR_GRUPO];
+    if (!grupo) continue;
+    rateSeriesByGroup.set(grupo, definitiveMap(orderedPoints(serie)));
+  }
+  if (rateSeriesByGroup.size !== 14) {
+    fail(`Se esperaban 14 series de variación anual y hay ${rateSeriesByGroup.size}.`);
+  }
 
-  const monthIndex = (ym) => months.indexOf(ym);
+  const auditRates = {
+    general: auditMonths.map((ym) => {
+      const value = rateSeriesByGroup.get('Índice general')?.get(ym);
+      return value == null ? null : Number(value.toFixed(2));
+    }),
+    groups: Object.fromEntries(
+      rows.map((row) => [
+        row.short,
+        auditMonths.map((ym) => {
+          const value = rateSeriesByGroup.get(row.name)?.get(ym);
+          return value == null ? null : Number(value.toFixed(2));
+        }),
+      ])
+    ),
+  };
+
+  // Contraste independiente: nuestra variación anual frente a la que publica
+  // el INE para el mismo mes. La tolerancia cubre el redondeo de ambas series.
+  let maxCrossDiff = 0;
+  let crossCount = 0;
+  const crossCheck = (label, rates, derived) => {
+    let compared = 0;
+    months.forEach((ym, i) => {
+      const published = rates?.get(ym);
+      const value = derived[i];
+      if (published == null || value == null) return;
+      const diff = Math.abs(value - published);
+      if (diff > 0.06) {
+        fail(`Variación anual de ${label} en ${ym}: ${value} % frente a ${published} % publicada.`);
+      }
+      compared += 1;
+      crossCount += 1;
+      if (diff > maxCrossDiff) maxCrossDiff = diff;
+    });
+    if (compared < 280) {
+      fail(`Solo se pudieron contrastar ${compared} meses de ${label} con el INE.`);
+    }
+  };
+
+  crossCheck('IPC general', rateSeriesByGroup.get('Índice general'), series.general);
+  for (const row of rows) {
+    crossCheck(row.short, rateSeriesByGroup.get(row.name), series[row.short]);
+  }
+
   const peakOf = (arr) => {
     let best = { value: -Infinity, month: null };
     arr.forEach((v, i) => {
@@ -297,17 +382,36 @@ async function main() {
 
   const seriesPayload = { latest: lastMonth, months, series };
 
+  const auditPayload = {
+    source: {
+      name: 'INE — Índice de Precios de Consumo',
+      table: 76125,
+      url: 'https://www.ine.es/jaxiT3/Tabla.htm?t=76125',
+      note: 'Índices mensuales por grupo y variación anual publicada por el INE. Snapshot de auditoría; no se sirve al navegador.',
+    },
+    fetched: payload.fetched,
+    months: auditMonths,
+    indices: auditIndices,
+    annualRates: auditRates,
+  };
+
   await mkdir(dirname(OUT), { recursive: true });
   await writeFile(OUT, JSON.stringify(payload), 'utf8');
   await writeFile(OUT_SERIES, JSON.stringify(seriesPayload), 'utf8');
+  await writeFile(OUT_AUDIT, JSON.stringify(auditPayload), 'utf8');
 
   const kb = (Buffer.byteLength(JSON.stringify(payload)) / 1024).toFixed(1);
   const kbSeries = (Buffer.byteLength(JSON.stringify(seriesPayload)) / 1024).toFixed(1);
+  const kbAudit = (Buffer.byteLength(JSON.stringify(auditPayload)) / 1024).toFixed(1);
   console.log(`✓ ${rows.length} grupos, último dato ${latest}`);
   console.log(`✓ serie mensual: ${months.length} meses, ${Object.keys(series).length} series`);
   console.log(`✓ general: 2019 ${general['2019']} % | 2002 ${general['2002']} %`);
+  console.log(
+    `✓ contraste con el INE: ${crossCount} comparaciones, diferencia máxima ${maxCrossDiff.toFixed(3)} pp`
+  );
   console.log(`✓ ${kb} KB → ${OUT}`);
   console.log(`✓ ${kbSeries} KB → ${OUT_SERIES}`);
+  console.log(`✓ ${kbAudit} KB → ${OUT_AUDIT}`);
   console.log(`✓ ${((Date.now() - started) / 1000).toFixed(1)} s`);
 }
 

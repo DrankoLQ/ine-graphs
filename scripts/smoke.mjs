@@ -27,14 +27,17 @@ const push = (name, ok, detail = '') => checks.push({ name, ok, detail });
 await page.goto(BASE, { waitUntil: 'networkidle' });
 
 const cards = await page.locator('.story-card').count();
-push('hub: 3 historias', cards === 3, `cards=${cards}`);
+push('hub: 4 historias', cards === 4, `cards=${cards}`);
 
 const hrefs = await page.locator('.story-card').evaluateAll((els) =>
   els.map((e) => e.getAttribute('href'))
 );
 push(
-  'hub: enlaces a las tres historias',
-  hrefs.includes('/piramide') && hrefs.includes('/inflacion') && hrefs.includes('/paro'),
+  'hub: enlaces a las cuatro historias',
+  hrefs.includes('/piramide') &&
+    hrefs.includes('/inflacion') &&
+    hrefs.includes('/paro') &&
+    hrefs.includes('/salario-real'),
   hrefs.join(',')
 );
 
@@ -54,10 +57,22 @@ push('pirámide: año inicial 1981', year0 === '1981', `año=${year0}`);
 const total0 = (await page.locator('[data-stat="total"]').textContent()).trim();
 push('pirámide: población 1981', total0 === '37,761,297', `total=${total0}`);
 
+const young0 = (await page.locator('[data-stat="young"]').textContent()).trim();
+push('pirámide: menores de 15 en 1981', young0 === '25,5 %', `young=${young0}`);
+
+const old0 = (await page.locator('[data-stat="old"]').textContent()).trim();
+push('pirámide: mayores de 65 en 1981', old0 === '11,3 %', `old=${old0}`);
+
 await page.locator('[data-slider]').fill('44');
 await page.waitForTimeout(300);
 const modalEnd = (await page.locator('[data-stat="modal"]').textContent()).trim();
 push('pirámide: edad modal 2025', modalEnd === '48 años', `modal=${modalEnd}`);
+
+const youngEnd = (await page.locator('[data-stat="young"]').textContent()).trim();
+push('pirámide: menores de 15 en 2025', youngEnd === '12,9 %', `young=${youngEnd}`);
+
+const oldEnd = (await page.locator('[data-stat="old"]').textContent()).trim();
+push('pirámide: mayores de 65 en 2025', oldEnd === '20,7 %', `old=${oldEnd}`);
 
 await page.locator('[data-play]').click();
 await page.waitForTimeout(800);
@@ -65,13 +80,22 @@ const playing = await page.locator('[data-play]').getAttribute('aria-pressed');
 push('pirámide: play funciona', playing === 'true', `pressed=${playing}`);
 await page.locator('[data-play]').click();
 
+const pyramidProv = (await page.locator('.provenance').textContent()).replace(/\s+/g, ' ').trim();
+push(
+  'pirámide: trazabilidad de datos',
+  pyramidProv.includes('Datos directos') &&
+    pyramidProv.includes('Cálculo propio') &&
+    pyramidProv.includes('edad modal'),
+  `texto=${pyramidProv.slice(0, 90)}`
+);
+
 const navCount = await page.locator('.nav-links a').count();
 push('nav: un enlace al índice', navCount === 1, `links=${navCount}`);
 
 await page.locator('.nav-links a', { hasText: 'Todas las historias' }).click();
 await page.waitForURL(BASE + '/');
 const backCards = await page.locator('.story-card').count();
-push('nav: vuelve al índice', backCards === 3, `cards=${backCards}`);
+push('nav: vuelve al índice', backCards === 4, `cards=${backCards}`);
 
 /* --------------------------------------------------------------- Inflación */
 
@@ -220,6 +244,15 @@ const seriesTip = await page.locator('.series-tooltip').isVisible();
 push('serie: tooltip al pasar el ratón', seriesTip);
 await page.mouse.move(0, 0);
 
+const inflationProv = (await page.locator('.provenance').textContent()).replace(/\s+/g, ' ').trim();
+push(
+  'inflación: trazabilidad de datos',
+  inflationProv.includes('Datos directos') &&
+    inflationProv.includes('Cálculo propio') &&
+    inflationProv.includes('variación anual'),
+  `texto=${inflationProv.slice(0, 90)}`
+);
+
 /* -------------------------------------------------------------- Responsive */
 
 const overflowDesktop = await page.evaluate(
@@ -294,6 +327,15 @@ push(
 );
 await page.mouse.move(0, 0);
 
+const paroProv = (await page.locator('.provenance').textContent()).replace(/\s+/g, ' ').trim();
+push(
+  'paro: trazabilidad de datos',
+  paroProv.includes('Datos directos') &&
+    paroProv.includes('Cálculo propio') &&
+    paroProv.includes('no se recalcula'),
+  `texto=${paroProv.slice(0, 90)}`
+);
+
 const paroOverflowDesktop = await page.evaluate(
   () => document.documentElement.scrollWidth - window.innerWidth
 );
@@ -310,6 +352,117 @@ const mobileEnds = await page.locator('.paro-end').count();
 push('paro: valores finales en móvil', mobileEnds === 2, `labels=${mobileEnds}`);
 
 await page.screenshot({ path: '.artifacts/smoke-paro.png', fullPage: true });
+
+/* ---------------------------------------------------------- Salario real */
+
+await page.setViewportSize({ width: 1000, height: 900 });
+await page.goto(`${BASE}/salario-real`, { waitUntil: 'networkidle' });
+await page.waitForTimeout(400);
+
+const salary = JSON.parse(
+  readFileSync(new URL('../src/data/salario-real.json', import.meta.url), 'utf8')
+);
+push(
+  'salario: 17 años, 2008-2024',
+  salary.years.length === 17 && salary.years[0] === 2008 && salary.latest === 2024,
+  `n=${salary.years.length} fin=${salary.latest}`
+);
+push(
+  'salario: +35,0 % nominal y +1,1 % real',
+  Math.abs(salary.stats.nominal.growth - 34.99) < 0.02 &&
+    Math.abs(salary.stats.real.growth - 1.12) < 0.02,
+  `${salary.stats.nominal.growth} % / ${salary.stats.real.growth} %`
+);
+push(
+  'salario: IPC acumulado +33,5 %',
+  Math.abs(salary.ipcChange.at(-1) - 33.49) < 0.02,
+  `${salary.ipcChange.at(-1)} %`
+);
+
+const salaryTitle = await page.title();
+push('salario: titular con las dos cifras', salaryTitle.includes('35') && salaryTitle.includes('1'), salaryTitle);
+
+const salaryLines = await page.locator('[data-chart-salario] path[fill="none"]').count();
+push('salario: dos líneas', salaryLines === 2, `paths=${salaryLines}`);
+
+const salaryEnds = await page.locator('.salario-end').allTextContents();
+push('salario: valores finales', salaryEnds.join('|') === '+35,0 %|+1,1 %', salaryEnds.join('|'));
+
+const salaryNote = (await page.locator('.salario-note').textContent()).trim();
+push('salario: mínimo -4,7 % en 2013', salaryNote === '-4,7 % · 2013', `nota=${salaryNote}`);
+
+const gapLabel = (await page.locator('.salario-gap-label').textContent()).trim();
+push('salario: etiqueta de inflación', gapLabel === 'inflación', `label=${gapLabel}`);
+
+const salaryTableRows = await page.locator('.salario-table tbody tr').count();
+push('salario: tabla con 17 años', salaryTableRows === 17, `rows=${salaryTableRows}`);
+
+const salaryHeaders = await page.locator('.salario-table thead th').allTextContents();
+push(
+  'salario: tabla con IPC',
+  salaryHeaders.includes('IPC acumulado'),
+  salaryHeaders.join('|')
+);
+
+const ipc2024 = (
+  await page.locator('.salario-table tbody tr').first().locator('td').nth(1).textContent()
+)
+  .replace(/\u00A0/g, ' ')
+  .trim();
+push('salario: IPC de 2024 en la tabla', ipc2024 === '+33,5 %', `valor=${ipc2024}`);
+
+await page.locator('[data-chart-salario] svg').scrollIntoViewIfNeeded();
+await page.waitForTimeout(250);
+const salaryBox = await page.locator('[data-chart-salario] svg').boundingBox();
+await page.mouse.move(salaryBox.x + salaryBox.width * 0.32, salaryBox.y + salaryBox.height * 0.55);
+await page.waitForTimeout(250);
+const salaryTip = await page.locator('.series-tooltip').isVisible();
+const salaryTipText = salaryTip
+  ? (await page.locator('.series-tooltip').textContent()).trim()
+  : '';
+push(
+  'salario: tooltip con el año',
+  salaryTip &&
+    salaryTipText.includes('2013') &&
+    salaryTipText.includes('Nominal') &&
+    salaryTipText.includes('IPC'),
+  `texto=${salaryTipText.slice(0, 70)}`
+);
+await page.mouse.move(0, 0);
+
+const salaryProv = (await page.locator('.provenance').textContent()).replace(/\s+/g, ' ').trim();
+push(
+  'salario: trazabilidad de datos',
+  salaryProv.includes('Datos directos') &&
+    salaryProv.includes('Cálculo propio') &&
+    salaryProv.includes('base 2008'),
+  `texto=${salaryProv.slice(0, 90)}`
+);
+
+const salaryOverflowDesktop = await page.evaluate(
+  () => document.documentElement.scrollWidth - window.innerWidth
+);
+push(
+  'salario: sin overflow a 1000 px',
+  salaryOverflowDesktop <= 0,
+  `overflow=${salaryOverflowDesktop}px`
+);
+
+await page.setViewportSize({ width: 380, height: 900 });
+await page.waitForTimeout(500);
+const salaryOverflowMobile = await page.evaluate(
+  () => document.documentElement.scrollWidth - window.innerWidth
+);
+push(
+  'salario: sin overflow a 380 px',
+  salaryOverflowMobile <= 0,
+  `overflow=${salaryOverflowMobile}px`
+);
+
+const mobileSalaryEnds = await page.locator('.salario-end').count();
+push('salario: valores finales en móvil', mobileSalaryEnds === 2, `labels=${mobileSalaryEnds}`);
+
+await page.screenshot({ path: '.artifacts/smoke-salario.png', fullPage: true });
 
 /* ------------------------------------------------------------ Reduc. motion */
 
