@@ -13,8 +13,6 @@ dependencias en tiempo de ejecución.
 
 https://ine-graphs.vercel.app
 
-Proyecto `ine-graphs` en el scope personal `dani-luques-projects`, plan Hobby.
-
 Para actualizar los datos y publicar:
 
 ```bash
