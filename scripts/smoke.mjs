@@ -27,14 +27,14 @@ const push = (name, ok, detail = '') => checks.push({ name, ok, detail });
 await page.goto(BASE, { waitUntil: 'networkidle' });
 
 const cards = await page.locator('.story-card').count();
-push('hub: 2 historias', cards === 2, `cards=${cards}`);
+push('hub: 3 historias', cards === 3, `cards=${cards}`);
 
 const hrefs = await page.locator('.story-card').evaluateAll((els) =>
   els.map((e) => e.getAttribute('href'))
 );
 push(
-  'hub: enlaces a piramide e inflacion',
-  hrefs.includes('/piramide') && hrefs.includes('/inflacion'),
+  'hub: enlaces a las tres historias',
+  hrefs.includes('/piramide') && hrefs.includes('/inflacion') && hrefs.includes('/paro'),
   hrefs.join(',')
 );
 
@@ -71,7 +71,7 @@ push('nav: un enlace al índice', navCount === 1, `links=${navCount}`);
 await page.locator('.nav-links a', { hasText: 'Todas las historias' }).click();
 await page.waitForURL(BASE + '/');
 const backCards = await page.locator('.story-card').count();
-push('nav: vuelve al índice', backCards === 2, `cards=${backCards}`);
+push('nav: vuelve al índice', backCards === 3, `cards=${backCards}`);
 
 /* --------------------------------------------------------------- Inflación */
 
@@ -238,6 +238,78 @@ const mobileRows = await page.locator('g.row').count();
 push('inflación: 13 barras en móvil', mobileRows === 13, `rows=${mobileRows}`);
 
 await page.screenshot({ path: '.artifacts/smoke-inflacion.png', fullPage: true });
+
+/* ------------------------------------------------------------------- Paro */
+
+await page.setViewportSize({ width: 1000, height: 900 });
+await page.goto(`${BASE}/paro`, { waitUntil: 'networkidle' });
+await page.waitForTimeout(400);
+
+const paro = JSON.parse(
+  readFileSync(new URL('../src/data/paro.json', import.meta.url), 'utf8')
+);
+push(
+  'paro: 99 trimestres, último 2026-07',
+  paro.quarters.length === 99 && paro.latest === '2026-07',
+  `n=${paro.quarters.length} fin=${paro.latest}`
+);
+push(
+  'paro: pico juvenil 56,92 % en 2013-01',
+  paro.stats.peak.quarter === '2013-01' && Math.abs(paro.stats.peak.youth - 56.92) < 0.01,
+  `${paro.stats.peak.youth} % en ${paro.stats.peak.quarter}`
+);
+
+const paroLines = await page.locator('[data-chart-paro] path').count();
+push('paro: dos líneas', paroLines === 2, `paths=${paroLines}`);
+
+const ends = await page.locator('.paro-end').allTextContents();
+push('paro: valores finales', ends.join('|') === '23,3 %|10,2 %', ends.join('|'));
+
+const peakNote = (await page.locator('.paro-note:not(.paro-note--muted)').textContent()).trim();
+push('paro: anotación del pico', peakNote === '56,9 % · 1T 2013', `nota=${peakNote}`);
+
+const paroTableRows = await page.locator('.table-wrap tbody tr').count();
+push('paro: tabla con 99 trimestres', paroTableRows === 99, `rows=${paroTableRows}`);
+
+const paroNote = (await page.locator('.chart-note').textContent()).replace(/\s+/g, ' ').trim();
+push(
+  'paro: el mínimo aparece en la nota',
+  paroNote.includes('16,9 %') && paroNote.includes('3T 2006'),
+  `nota=${paroNote.slice(0, 70)}`
+);
+
+await page.locator('[data-chart-paro] svg').scrollIntoViewIfNeeded();
+await page.waitForTimeout(250);
+const paroBox = await page.locator('[data-chart-paro] svg').boundingBox();
+await page.mouse.move(paroBox.x + paroBox.width * 0.45, paroBox.y + paroBox.height * 0.5);
+await page.waitForTimeout(250);
+const paroTip = await page.locator('.series-tooltip').isVisible();
+const paroTipText = paroTip
+  ? (await page.locator('.series-tooltip').textContent()).trim()
+  : '';
+push(
+  'paro: tooltip con el trimestre',
+  paroTip && paroTipText.includes('1T 2013'),
+  `texto=${paroTipText.slice(0, 40)}`
+);
+await page.mouse.move(0, 0);
+
+const paroOverflowDesktop = await page.evaluate(
+  () => document.documentElement.scrollWidth - window.innerWidth
+);
+push('paro: sin overflow a 1000 px', paroOverflowDesktop <= 0, `overflow=${paroOverflowDesktop}px`);
+
+await page.setViewportSize({ width: 380, height: 900 });
+await page.waitForTimeout(500);
+const paroOverflowMobile = await page.evaluate(
+  () => document.documentElement.scrollWidth - window.innerWidth
+);
+push('paro: sin overflow a 380 px', paroOverflowMobile <= 0, `overflow=${paroOverflowMobile}px`);
+
+const mobileEnds = await page.locator('.paro-end').count();
+push('paro: valores finales en móvil', mobileEnds === 2, `labels=${mobileEnds}`);
+
+await page.screenshot({ path: '.artifacts/smoke-paro.png', fullPage: true });
 
 /* ------------------------------------------------------------ Reduc. motion */
 

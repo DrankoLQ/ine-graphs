@@ -7,9 +7,10 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "data": "npm run data:piramide && npm run data:inflacion",
+    "data": "npm run data:piramide && npm run data:inflacion && npm run data:paro",
     "data:piramide": "node scripts/fetch-piramide.mjs",
     "data:inflacion": "node scripts/fetch-inflacion.mjs",
+    "data:paro": "node scripts/fetch-paro.mjs",
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {

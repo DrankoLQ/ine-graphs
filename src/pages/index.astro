@@ -14,6 +14,12 @@ const stories = [
     title: 'No todo sube igual',
     hook: 'La comida sube un 41 %; la ropa, un 11 %. Y cada año de la serie tiene su propia historia.',
   },
+  {
+    href: '/paro',
+    theme: 'Trabajo',
+    title: 'Ser joven duplica el paro',
+    hook: 'La tasa de los menores de 25 años llegó al 56,9 % en 2013. En el verano de 2026 es del 23,3 %, el doble que la general.',
+  },
 ];
 ---
 
@@ -53,7 +59,7 @@ const stories = [
 <style is:global>
   .story-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 14px;
   }
 
@@ -120,11 +126,19 @@ const stories = [
     color: var(--muted);
   }
 
-  @media (max-width: 620px) {
+  @media (min-width: 620px) {
     .story-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+  }
 
+  @media (min-width: 1100px) {
+    .story-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 620px) {
     .story-card {
       padding: 20px 20px 44px;
     }

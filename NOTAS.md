@@ -39,6 +39,35 @@ pertenecen al README de presentación.
 - Los pesos de la cesta son de 2026, no de la fecha base. Sirven como contexto,
   no para calcular contribuciones exactas.
 
+## Paro juvenil
+
+### Decisiones
+
+- Se usa la tasa publicada por la EPA, no una calculada como parados/activos. Así
+  coincide con la tabla oficial y no arrastra diferencias de redondeo.
+- «Menores de 25 años» es el grupo de 16 a 24. En la API no está en
+  `Totales de edad`: vive en `Semiintervalos de edad`. El total usa
+  `Totales de edad = Total`. Hay que leer las dos variables, no una.
+- El mínimo de la serie es 2006-T3 (16,9 %), no 2007. En 2007-T2 la tasa fue
+  18,1 %, pero un año antes había bajado más. El titular usa el mínimo real.
+- La escala arranca en cero. El paro es una proporción; recortar el eje haría
+  parecer mayores las diferencias entre jóvenes y total.
+- La banda 2008-T1–2013-T4 es contexto editorial, no un dato de la EPA.
+- La anotación del mínimo se quitó del gráfico: en móvil cruzaba la línea. El
+  valor sigue en la nota y en la tabla.
+- La tasa juvenil se mantuvo entre 1,91 y 2,58 veces la general en los 99
+  trimestres. Ese es el dato que sostiene el titular, más que el pico de 2013.
+- El último trimestre, 2026-T3, es definitivo; la EPA no publica avances
+  trimestrales como el IPC.
+
+### Trampas
+
+- La tabla 14506 devuelve 240 series y 2,9 MB sin comprimir. Solo dos sirven para
+  este gráfico.
+- `T3_Periodo` identifica el trimestre, pero la fecha (día 1 de enero, abril,
+  julio u octubre) es la fuente principal. El script valida que coincidan cuando
+  el periodo está presente.
+
 ## Ancho de página
 
 El contenedor llega a 1400 px, pero el texto largo no: la cabecera, el método y
@@ -47,8 +76,8 @@ usan todo el ancho. A partir de 1100 px la cabecera pasa a dos columnas
 (titular a la izquierda, entradilla a la derecha) para no dejar un hueco muerto.
 
 Los gráficos escalan su alto con el ancho: la pirámide hasta 820 px, la serie
-mensual hasta 470 px, y las barras de inflación aumentan el alto de fila por
-encima de 900 px.
+mensual y la de paro hasta 470-480 px, y las barras de inflación aumentan el alto
+de fila por encima de 900 px.
 
 ## Trampas de la API del INE
 
